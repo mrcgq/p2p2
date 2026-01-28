@@ -1,3 +1,4 @@
+// internal/proxy/http.go
 
 package proxy
 
@@ -7,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/anthropics/phantom-core/internal/logger"
@@ -132,5 +132,3 @@ func (s *HTTPServer) Stop() error {
 	}
 	return nil
 }
-
-
