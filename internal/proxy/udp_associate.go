@@ -1,3 +1,5 @@
+// internal/proxy/udp_associate.go
+
 package proxy
 
 import (
@@ -210,26 +212,26 @@ func (h *UDPAssociateHandler) forwardToTarget(
 	// 1. 解析目标地址
 	host, portStr, err := net.SplitHostPort(targetAddr)
 	if err != nil {
-		h.log.Debug("解析目标地址失败", "addr", targetAddr, "error", err)
+		h.log.Debug("解析目标地址失败: addr=%s, error=%v", targetAddr, err)
 		return
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		h.log.Debug("解析端口失败", "port", portStr, "error", err)
+		h.log.Debug("解析端口失败: port=%s, error=%v", portStr, err)
 		return
 	}
 
 	// 2. 获取或创建 UDP 会话
 	session, err := h.getOrCreateSession(assoc, targetAddr, host, uint16(port), clientUDP)
 	if err != nil {
-		h.log.Error("创建 UDP 会话失败", "target", targetAddr, "error", err)
+		h.log.Error("创建 UDP 会话失败: target=%s, error=%v", targetAddr, err)
 		return
 	}
 
 	// 3. 通过隧道发送 UDP 数据报
 	datagram := &UDPDatagram{Data: data}
 	if err := datagram.WriteTo(session.Stream); err != nil {
-		h.log.Error("发送 UDP 数据报失败", "error", err)
+		h.log.Error("发送 UDP 数据报失败: error=%v", err)
 		h.closeSession(assoc, targetAddr)
 		return
 	}
@@ -238,9 +240,7 @@ func (h *UDPAssociateHandler) forwardToTarget(
 	session.LastActive = time.Now()
 	session.mu.Unlock()
 
-	h.log.Debug("UDP 数据已通过隧道发送",
-		"target", targetAddr,
-		"size", len(data))
+	h.log.Debug("UDP 数据已通过隧道发送: target=%s, size=%d", targetAddr, len(data))
 }
 
 // getOrCreateSession 获取现有会话或创建新会话
@@ -283,7 +283,7 @@ func (h *UDPAssociateHandler) getOrCreateSession(
 	// 启动响应接收器
 	go h.handleSessionResponses(assoc, session, clientUDP)
 
-	h.log.Debug("创建新 UDP 会话", "target", targetAddr)
+	h.log.Debug("创建新 UDP 会话: target=%s", targetAddr)
 	return session, nil
 }
 
@@ -300,7 +300,7 @@ func (h *UDPAssociateHandler) handleSessionResponses(
 		datagram := &UDPDatagram{}
 		if err := datagram.ReadFrom(session.Stream); err != nil {
 			if err != io.EOF {
-				h.log.Debug("读取 UDP 响应失败", "error", err)
+				h.log.Debug("读取 UDP 响应失败: error=%v", err)
 			}
 			return
 		}
@@ -321,13 +321,12 @@ func (h *UDPAssociateHandler) handleSessionResponses(
 		assoc.mu.Unlock()
 
 		if err != nil {
-			h.log.Debug("发送 UDP 响应给客户端失败", "error", err)
+			h.log.Debug("发送 UDP 响应给客户端失败: error=%v", err)
 			return
 		}
 
-		h.log.Debug("UDP 响应已转发给客户端",
-			"target", session.TargetAddr,
-			"size", len(datagram.Data))
+		h.log.Debug("UDP 响应已转发给客户端: target=%s, size=%d",
+			session.TargetAddr, len(datagram.Data))
 	}
 }
 
@@ -338,7 +337,7 @@ func (h *UDPAssociateHandler) closeSession(assoc *UDPAssociation, targetAddr str
 		if session.Stream != nil {
 			session.Stream.Close()
 		}
-		h.log.Debug("关闭 UDP 会话", "target", targetAddr)
+		h.log.Debug("关闭 UDP 会话: target=%s", targetAddr)
 	}
 }
 
@@ -394,7 +393,7 @@ func (h *UDPAssociateHandler) closeAssociation(id string) {
 		h.closeAllSessions(assoc)
 
 		assoc.UDPConn.Close()
-		h.log.Debug("关闭 UDP 关联", "id", id)
+		h.log.Debug("关闭 UDP 关联: id=%s", id)
 	}
 }
 
