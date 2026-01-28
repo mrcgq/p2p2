@@ -1,3 +1,4 @@
+// internal/fec/adaptive.go
 
 package fec
 
@@ -5,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/klauspost/reedsolomon"
@@ -412,4 +412,3 @@ func max(a, b int) int {
 	}
 	return b
 }
-
