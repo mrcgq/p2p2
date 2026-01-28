@@ -1,3 +1,4 @@
+// internal/proxy/socks5.go
 
 package proxy
 
@@ -5,7 +6,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 	"time"
 
@@ -266,4 +266,3 @@ func (s *Socks5Server) Stop() error {
 	}
 	return nil
 }
-
