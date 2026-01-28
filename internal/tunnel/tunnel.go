@@ -1,3 +1,4 @@
+// internal/tunnel/tunnel.go
 
 package tunnel
 
@@ -282,7 +283,7 @@ func (t *Tunnel) OpenStream(network, address string, port uint16) (*Stream, erro
 	}
 
 	// 构建目标信息
-	addrType := protocol.AddrTypeDomain
+	var addrType byte = protocol.AddrTypeDomain
 	if ip := net.ParseIP(address); ip != nil {
 		if ip.To4() != nil {
 			addrType = protocol.AddrTypeIPv4
@@ -291,7 +292,7 @@ func (t *Tunnel) OpenStream(network, address string, port uint16) (*Stream, erro
 		}
 	}
 
-	networkByte := byte(protocol.NetworkTCP)
+	var networkByte byte = protocol.NetworkTCP
 	if network == "udp" {
 		networkByte = protocol.NetworkUDP
 	}
@@ -334,7 +335,7 @@ func (t *Tunnel) OpenSession(network, address string, port uint16) (*Session, er
 	session := t.sessions.Create(t.config.Buffer.SendBuffer, t.config.Buffer.RecvBuffer)
 	session.SetTarget(network, fmt.Sprintf("%s:%d", address, port))
 
-	addrType := protocol.AddrTypeDomain
+	var addrType byte = protocol.AddrTypeDomain
 	if ip := net.ParseIP(address); ip != nil {
 		if ip.To4() != nil {
 			addrType = protocol.AddrTypeIPv4
@@ -343,7 +344,7 @@ func (t *Tunnel) OpenSession(network, address string, port uint16) (*Session, er
 		}
 	}
 
-	networkByte := byte(protocol.NetworkTCP)
+	var networkByte byte = protocol.NetworkTCP
 	if network == "udp" {
 		networkByte = protocol.NetworkUDP
 	}
@@ -700,4 +701,3 @@ func (t *Tunnel) GetSessions() *SessionManager {
 func (t *Tunnel) IsMuxEnabled() bool {
 	return t.muxEnabled
 }
-
