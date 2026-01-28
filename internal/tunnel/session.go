@@ -1,8 +1,8 @@
+// internal/tunnel/session.go
 
 package tunnel
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -11,14 +11,14 @@ import (
 
 // Session 表示一个代理会话
 type Session struct {
-	ID        uint32
-	SendBuf   *buffer.SendBuffer
-	RecvBuf   *buffer.RecvBuffer
+	ID      uint32
+	SendBuf *buffer.SendBuffer
+	RecvBuf *buffer.RecvBuffer
 
-	connected  atomic.Bool
-	closed     atomic.Bool
-	ackSeq     atomic.Uint32
-	sendSeq    atomic.Uint32
+	connected atomic.Bool
+	closed    atomic.Bool
+	ackSeq    atomic.Uint32
+	sendSeq   atomic.Uint32
 
 	// 目标信息
 	network    string
@@ -132,5 +132,3 @@ func (s *Session) touch() {
 func (s *Session) GetLastActive() time.Time {
 	return s.lastActive.Load().(time.Time)
 }
-
-
