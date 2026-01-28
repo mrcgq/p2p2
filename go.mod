@@ -1,4 +1,3 @@
-
 module github.com/anthropics/phantom-core
 
 go 1.21
