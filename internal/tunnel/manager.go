@@ -1,4 +1,3 @@
-
 package tunnel
 
 import (
@@ -18,6 +17,9 @@ type Manager struct {
 	stats  *stats.Collector
 	log    *logger.Logger
 
+	// 连接回调
+	onConnect func(serverAddr string)
+
 	mu sync.Mutex
 }
 
@@ -28,6 +30,13 @@ func NewManager(cfg *config.Config, statsCollector *stats.Collector, log *logger
 		stats:  statsCollector,
 		log:    log,
 	}
+}
+
+// SetOnConnect 设置连接回调（用于通知 bypass）
+func (m *Manager) SetOnConnect(fn func(serverAddr string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.onConnect = fn
 }
 
 // SetServer 设置服务器配置
@@ -46,6 +55,11 @@ func (m *Manager) Connect(ctx context.Context) error {
 		return nil
 	}
 
+	// 通知 bypass（在连接之前）
+	if m.onConnect != nil {
+		m.onConnect(m.config.Server.Address)
+	}
+
 	tunnel, err := New(m.config, m.stats, m.log)
 	if err != nil {
 		return err
@@ -62,6 +76,7 @@ func (m *Manager) Disconnect() {
 
 	if m.tunnel != nil {
 		m.tunnel.Disconnect()
+		m.tunnel = nil
 	}
 }
 
@@ -246,4 +261,3 @@ func (m *SessionManager) Count() int {
 	})
 	return count
 }
-
