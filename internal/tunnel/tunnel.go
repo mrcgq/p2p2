@@ -45,11 +45,12 @@ type Tunnel struct {
 	log   *logger.Logger
 
 	// 状态
-	connected atomic.Bool
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	mu        sync.Mutex
+	connected    atomic.Bool
+	muxConnected chan struct{} // 多路复用连接确认信号
+	ctx          context.Context
+	cancel       context.CancelFunc
+	wg           sync.WaitGroup
+	mu           sync.Mutex
 }
 
 // New 创建新隧道
@@ -147,6 +148,10 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 		t.fecEncoder.Start(t.ctx)
 	}
 
+	// 必须先启动接收循环，才能收到连接确认
+	t.wg.Add(1)
+	go t.receiveLoop()
+
 	// 如果启用多路复用，创建 Mux 会话
 	if t.muxEnabled {
 		muxConfig := MuxConfig{
@@ -156,17 +161,53 @@ func (t *Tunnel) Connect(ctx context.Context) error {
 			IdleTimeout:       t.config.Mux.IdleTimeout,
 		}
 		t.mux = NewMux(1, muxConfig)
+		t.muxConnected = make(chan struct{})
 
-		// 发送多路复用连接请求
-		if err := t.sendMuxConnect(); err != nil {
+		// 发送多路复用连接请求（带重试）
+		const maxRetries = 3
+		const retryInterval = 500 * time.Millisecond
+		const connectTimeout = 3 * time.Second
+
+		var lastErr error
+		connected := false
+
+		for i := 0; i < maxRetries && !connected; i++ {
+			if i > 0 {
+				t.log.Debug("重试连接 (尝试 %d/%d)", i+1, maxRetries)
+				time.Sleep(retryInterval)
+			}
+
+			if err := t.sendMuxConnect(); err != nil {
+				lastErr = fmt.Errorf("发送连接请求失败: %w", err)
+				t.log.Debug("发送连接请求失败 (尝试 %d/%d): %v", i+1, maxRetries, err)
+				continue
+			}
+
+			// 等待连接确认
+			select {
+			case <-t.muxConnected:
+				connected = true
+				t.log.Debug("收到多路复用连接确认")
+			case <-time.After(connectTimeout):
+				lastErr = fmt.Errorf("等待连接确认超时")
+				t.log.Debug("等待连接确认超时 (尝试 %d/%d)", i+1, maxRetries)
+			case <-ctx.Done():
+				t.cancel()
+				t.transport.Close()
+				return ctx.Err()
+			}
+		}
+
+		if !connected {
+			t.cancel()
+			t.wg.Wait()
 			t.transport.Close()
-			return fmt.Errorf("发送多路复用连接请求: %w", err)
+			if lastErr != nil {
+				return fmt.Errorf("连接服务器失败: %w", lastErr)
+			}
+			return fmt.Errorf("连接服务器失败：未收到确认")
 		}
 	}
-
-	// 启动接收器
-	t.wg.Add(1)
-	go t.receiveLoop()
 
 	// 启动 FEC 清理
 	if t.fecCollector != nil {
@@ -555,6 +596,13 @@ func (t *Tunnel) handleReceived(data []byte) {
 func (t *Tunnel) handleConnectAck(packet *protocol.Packet) {
 	if packet.IsMux() {
 		t.log.Debug("多路复用会话已确认")
+		// 通知连接确认
+		select {
+		case <-t.muxConnected:
+			// 已经关闭，忽略
+		default:
+			close(t.muxConnected)
+		}
 		return
 	}
 
