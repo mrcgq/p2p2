@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -91,8 +90,21 @@ func main() {
 	// Create tunnel manager
 	tunnelMgr := tunnel.NewManager(cfg, statsCollector, log)
 
-	// Create proxy servers
+	// Create proxy handler
 	proxyHandler := proxy.NewHandler(tunnelMgr, statsCollector, log)
+
+	// 设置连接回调 - 自动添加服务器地址到 bypass 列表
+	tunnelMgr.SetOnConnect(func(serverAddr string) {
+		proxyHandler.SetServerBypass(serverAddr)
+		log.Debug("服务器地址已添加到 bypass: %s", serverAddr)
+	})
+
+	// 如果配置文件中已有服务器地址，提前设置 bypass
+	if cfg.Server.Address != "" {
+		proxyHandler.SetServerBypass(cfg.Server.Address)
+	}
+
+	// Create proxy servers
 	socksServer := proxy.NewSocks5Server(cfg.Proxy.SocksAddr, cfg.Proxy.SocksUDPEnabled, proxyHandler, log)
 	httpServer := proxy.NewHTTPServer(cfg.Proxy.HTTPAddr, proxyHandler, log)
 
